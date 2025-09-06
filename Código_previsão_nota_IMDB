@@ -1,0 +1,83 @@
+#bibliotecas
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.feature_extraction.text import TfidfVectorizer
+from scipy.sparse import csr_matrix, hstack
+
+#Carregar dataset
+df = pd.read_csv("/content/desafio_indicium_imdb.csv")
+
+#Limpar e converter Duração do Filme(runtime), retirando a partícula 'min' para que possa se comportar como int e substituindo locais nulos pela median
+df['Runtime'] = df['Runtime'].astype(str).str.replace('min', '', regex=False).str.strip()
+df['Runtime'] = pd.to_numeric(df['Runtime'], errors='coerce')
+df['Runtime'] = df['Runtime'].fillna(df['Runtime'].median())
+
+#Limpar e converter Faturamento(gross), substituindo os locais vazios por 0
+df['Gross'] = df['Gross'].replace(['N/A', ''], 0)
+df['Gross'] = df['Gross'].astype(str).str.replace(',', '', regex=False)
+df['Gross'] = pd.to_numeric(df['Gross'], errors='coerce').fillna(0)
+df['Gross_log'] = np.log1p(df['Gross'])
+
+#Limpar e converter Número de votos(No_of_Votes), susbtituindo valores inexistentes por 0
+df['No_of_Votes'] = df['No_of_Votes'].replace(['N/A', ''], 0)
+df['No_of_Votes'] = df['No_of_Votes'].astype(str).str.replace(',', '', regex=False)
+df['No_of_Votes'] = pd.to_numeric(df['No_of_Votes'], errors='coerce').fillna(0)
+df['No_of_Votes_log'] = np.log1p(df['No_of_Votes'])
+
+#Preencher Meta_score e Overview para não comprometer a interpretação dos dados, pois dados NaN são ignorados ou dão problema
+df['Meta_score'] = df['Meta_score'].fillna(df['Meta_score'].median())
+df['Overview'] = df['Overview'].fillna('')
+
+#Converter Released_Year para número e criar Movie_Age
+df['Released_Year'] = pd.to_numeric(df['Released_Year'], errors='coerce')
+df['Movie_Age'] = 2025 - df['Released_Year']
+df['Movie_Age'] = df['Movie_Age'].fillna(df['Movie_Age'].median())
+
+#Seleção de features para a análise, dividindo os features baseado no tipo dos inputs
+numeric_features = ['Runtime', 'Meta_score', 'Gross_log', 'No_of_Votes_log', 'Movie_Age']
+categorical_features = ['Certificate']  # pode adicionar 'Director', 'Star1', etc.
+text_feature = 'Overview'
+
+# 9️⃣ Codificação das variáveis categóricas (nova sintaxe scikit-learn >=1.2)
+ohe = OneHotEncoder(sparse_output=True, handle_unknown='ignore')
+X_cat = ohe.fit_transform(df[categorical_features])
+
+#Padronização das features numéricas para a escala ser de fácil compreensão e interpretação
+scaler = StandardScaler()
+X_num = scaler.fit_transform(df[numeric_features])
+X_num_sparse = csr_matrix(X_num)
+
+#Transformação do texto com TF-IDF
+tfidf = TfidfVectorizer(max_features=500)
+X_text = tfidf.fit_transform(df[text_feature])
+
+#Combinar todas as features sparse
+X = hstack([X_num_sparse, X_cat, X_text])
+
+#Target
+y = df['IMDB_Rating']
+
+#Divisão treino/teste
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+#Treinamento do modelo
+model = RandomForestRegressor(n_estimators=200, random_state=42)
+model.fit(X_train, y_train)
+
+#Predição e avaliação
+y_pred = model.predict(X_test)
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+r2 = r2_score(y_test, y_pred)
+print(f"RMSE: {rmse:.3f}")
+print(f"R²: {r2:.3f}")
+
+#Importância das features (numéricas + categóricas) serão definidas para que saibamos quais mais pesam ao decidir a nota de avaliação de um filme
+importances = model.feature_importances_[:len(numeric_features)+X_cat.shape[1]]
+feature_names = numeric_features + list(ohe.get_feature_names_out(categorical_features))
+importance_df = pd.DataFrame({'feature': feature_names, 'importance': importances})
+importance_df = importance_df.sort_values(by='importance', ascending=False)
+print(importance_df.head(10))
