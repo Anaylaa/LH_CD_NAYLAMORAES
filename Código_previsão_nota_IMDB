@@ -1,12 +1,14 @@
 #bibliotecas
 import pandas as pd
 import numpy as np
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.sparse import csr_matrix, hstack
+
 
 #Carregar dataset
 df = pd.read_csv("/content/desafio_indicium_imdb.csv")
@@ -81,3 +83,16 @@ feature_names = numeric_features + list(ohe.get_feature_names_out(categorical_fe
 importance_df = pd.DataFrame({'feature': feature_names, 'importance': importances})
 importance_df = importance_df.sort_values(by='importance', ascending=False)
 print(importance_df.head(10))
+
+#Salvar modelo + preprocessadores em .pkl
+joblib.dump({
+    'model': model,
+    'scaler': scaler,
+    'ohe': ohe,
+    'tfidf': tfidf,
+    'numeric_features': numeric_features,
+    'categorical_features': categorical_features,
+    'text_feature': text_feature
+}, 'model_complete.pkl')
+
+print("Modelo e preprocessadores salvos em 'model_complete.pkl'.")
