@@ -1,6 +1,19 @@
 import pandas as pd
 import numpy as np
+import joblib
 from scipy.sparse import csr_matrix, hstack
+
+#Carregar modelo + preprocessadores
+data = joblib.load('model_complete.pkl')
+model = data['model']
+scaler = data['scaler']
+ohe = data['ohe']
+tfidf = data['tfidf']
+numeric_features = data['numeric_features']
+categorical_features = data['categorical_features']
+text_feature = data['text_feature']
+
+
 
 # Definir o filme e as variáveis do filme
 movie = {
@@ -63,4 +76,5 @@ X_movie = hstack([X_num_sparse, X_cat, X_text])
 
 # Predição
 predicted_rating = model.predict(X_movie)
+
 print(f"Nota prevista do IMDb: {predicted_rating[0]:.2f}")
