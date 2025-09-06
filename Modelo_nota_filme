@@ -1,0 +1,66 @@
+import pandas as pd
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+
+# Definir o filme e as variáveis do filme
+movie = {
+    'Series_Title': 'The Shawshank Redemption',
+    'Released_Year': '1994',
+    'Certificate': 'A',
+    'Runtime': '142 min',
+    'Genre': 'Drama',
+    'Overview': 'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.',
+    'Meta_score': 80.0,
+    'Director': 'Frank Darabont',
+    'Star1': 'Tim Robbins',
+    'Star2': 'Morgan Freeman',
+    'Star3': 'Bob Gunton',
+    'Star4': 'William Sadler',
+    'No_of_Votes': 2343110,
+    'Gross': '28,341,469'
+}
+
+# Criar DataFrame
+df_movie = pd.DataFrame([movie])
+
+# Runtime(duração do filme)
+df_movie['Runtime'] = df_movie['Runtime'].str.replace('min', '', regex=False).str.strip()
+df_movie['Runtime'] = pd.to_numeric(df_movie['Runtime'], errors='coerce')
+
+# Gross(faturamento)
+df_movie['Gross'] = df_movie['Gross'].str.replace(',', '', regex=False)
+df_movie['Gross'] = pd.to_numeric(df_movie['Gross'], errors='coerce').fillna(0)
+df_movie['Gross_log'] = np.log1p(df_movie['Gross'])
+
+# No_of_Votes(número de votos)
+df_movie['No_of_Votes'] = pd.to_numeric(df_movie['No_of_Votes'], errors='coerce').fillna(0)
+df_movie['No_of_Votes_log'] = np.log1p(df_movie['No_of_Votes'])
+
+# Meta_score(média das notas dadas pelos críticos
+df_movie['Meta_score'] = df_movie['Meta_score'].fillna(0)
+
+# Released_Year -> Movie_Age
+df_movie['Released_Year'] = pd.to_numeric(df_movie['Released_Year'], errors='coerce')
+df_movie['Movie_Age'] = 2025 - df_movie['Released_Year']
+
+# Seleção de features
+numeric_features = ['Runtime', 'Meta_score', 'Gross_log', 'No_of_Votes_log', 'Movie_Age']
+categorical_features = ['Certificate']
+text_feature = 'Overview'
+
+# Padronizar numéricas (usando scaler treinado)
+X_num = scaler.transform(df_movie[numeric_features])
+X_num_sparse = csr_matrix(X_num)
+
+# Codificar categóricas (usando ohe treinado)
+X_cat = ohe.transform(df_movie[categorical_features])
+
+# TF-IDF do Overview (usando tfidf treinado)
+X_text = tfidf.transform(df_movie[text_feature])
+
+# Combinar
+X_movie = hstack([X_num_sparse, X_cat, X_text])
+
+# Predição
+predicted_rating = model.predict(X_movie)
+print(f"Nota prevista do IMDb: {predicted_rating[0]:.2f}")
